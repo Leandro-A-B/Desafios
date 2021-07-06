@@ -1,0 +1,103 @@
+###### AGREGAÇÃO POR REGIÃO
+
+
+from io import StringIO
+import io
+import csv
+import datetime
+import logging
+import pandas as pd
+import boto3
+from boto3.session import Session
+
+from pgdb import connect
+
+
+
+
+aws_access_key_id='myacesskeyid'
+aws_secret_access_key='secretacceskey'
+region_name='sa-east-1'
+
+session = Session(aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+s3 = session.resource('s3')
+
+bucket_conn = s3.Bucket('hackaton-microdados-rais')
+client = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+
+#jdbc:connection-jdbc-do-banco
+
+## PARAMETROS DE CONEXÃO REDSHIFT
+
+hostname = 'hostname'
+username = 'username'
+password = 'password'
+database = 'dbname'
+
+sudeste = ["SP", "MG", "RJ", "ES", "MG_ES_RJ.txt", "SP.txt"]
+sul = ["PR","RS","SC", "SUL.txt"]
+
+def upload_redshift(s3_path, table):
+    
+    
+    table = 'public'+ '.' + table
+    
+    credentials = '\'aws_access_key_id=acceskeyid;aws_secret_access_key=mysecretacceskey''
+    delimiter = 'delimiter \';\''
+    header = 'ignoreheader 1'
+    accept = 'acceptinvchars as \'?\''
+    conn = connect(host=hostname, user=username, password=password, database=database, port=5439)
+    query = 'copy ' + table + ' from ' + s3_path + ' credentials ' + credentials + ' ' + delimiter + ' ' + accept + ' ' + header + ' emptyasnull blanksasnull removequotes escape;'
+    dbcursor = conn.cursor()
+    dbcursor.execute(query)
+    conn.commit()
+    dbcursor.close()
+    
+    
+    #extract/2011/TO2011.txt
+
+
+
+for s3_file in bucket_conn.objects.filter(Prefix='extract/'):
+    print(s3_file.key)
+    
+    key = s3_file.key
+    
+    if(key.split('.')[-1]=='txt'):
+        s3_path = '\'s3://hackaton-microdados-rais/'+ s3_file.key + '\''
+        
+        print(s3_path)
+    
+        year = s3_file.key
+        year = year.split('/')[1]
+        
+        if(year=='2017' or year=='2016' or year=='2015' or year=='2014' or year=='2013' or year=='2012' or year=='2011' or year=='2010'):
+            
+            name_file = s3_file.key
+            name_file = name_file.split('/')[2]
+            name_file = name_file.split(year)[0]
+            
+            for estado in sudeste:
+                if(name_file == estado):
+                    table = 'sudeste'
+                    upload_redshift(s3_path, table)
+                    
+            for estado in sul:
+                if(name_file == estado):
+                    table = 'sul'
+                    upload_redshift(s3_path, table)
+                    
+                    
+        if(year=='2018' or year=='2019'):
+            name_file = s3_file.key
+            name_file = name_file.split("PUB_")[0]
+            
+            for estado in sudeste:
+                if(name_file == estado):
+                    table = 'sudeste'
+                    upload_redshift(s3_path, table)
+                    
+            for estado in sul:
+                if(name_file == estado):
+                    table = 'sul'
+                    upload_redshift(s3_path, table)

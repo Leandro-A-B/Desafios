@@ -1,0 +1,15 @@
+#A maquina inicializa e da a ordem para o arquivo .bat abaixo
+"C:\Python\python392\python.exe" "C:\teste\teste.py" 
+
+#Depois de aberto executa o processo
+
+print('Olá Mundo')
+
+print("chamando")
+
+import subprocess
+subprocess.call([r'C:\teste\teste.bat'])
+
+#finalizado o processo desliga
+
+shutdown.exe -s -t 180 -f -c "Ta desligando"

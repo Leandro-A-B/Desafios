@@ -1,0 +1,64 @@
+import json
+from ftplib import FTP
+import boto3
+import io
+import sys
+import pandas as pd
+
+
+s3 = boto3.resource(
+    service_name='s3',
+    region_name='sa-east-1',
+    aws_access_key_id='acesskeyid',
+    aws_secret_access_key='secretacesskey'
+)
+#s3_path = 's3://microdados-rais/zipped/'
+s3_connection = boto3.client("s3")
+
+print("INICIO")
+
+ftp = FTP(host='ftp.mtps.gov.br', user='anonymous', passwd='anonymous@')
+ftp.login()
+ftp.cwd('pdet')
+ftp.cwd('microdados')
+ftp.cwd('RAIS')
+
+print(ftp.nlst())
+
+list_folder = ftp.nlst()
+i=1
+for folder in list_folder:
+    print(i)
+    print(folder)
+    if(i==0):
+        ftp.cwd('..')
+        i=1
+    if(folder!='Layouts'):
+        if(int(folder)>2009 and int(folder)<2020):
+            i=0
+            
+            ftp.cwd(folder)
+            list_files = ftp.nlst()
+            
+            for file in list_files:
+                
+                file_download = io.BytesIO()
+                
+                ftp.retrbinary("RETR " + file, file_download.write, blocksize=8192)
+                
+                file_download.seek(0)
+                
+                s3_connection.upload_fileobj(file_download, "hackaton-microdados-rais", "zipped2/"+file)
+                file_download = ""
+                
+    df = pd.DataFrame([])
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer)         
+     
+    s3_connection.upload_fileobj(csv_buffer, "sininho", 'liga/df.csv')
+    #s3_resource = boto3.resource('s3')
+    #s3_resource.Object("sininho", 'liga/df.csv').put(Body=csv_buffer.getvalue())
+    
+
+                
+                    

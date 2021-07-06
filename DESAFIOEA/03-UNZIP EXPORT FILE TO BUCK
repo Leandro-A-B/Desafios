@@ -1,0 +1,46 @@
+import py7zr
+import boto3
+from boto3.session import Session
+import io
+import os
+import pandas as pd
+
+
+aws_access_key_id = "acesskeyid"
+aws_secret_access_key = "scretacceskey"
+region = "sa-east-1"
+bucket = "hackaton-microdados-rais"
+session = Session(aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+s3 = session.resource("s3")
+bucketRais = s3.Bucket(bucket)
+client = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+
+for s3_file in bucketRais.objects.filter(Prefix="glue/"):
+    print(s3_file.key)
+    
+    if(s3_file.key.split('.')[-1]=='7z'):
+        zipped_file = bucketRais.download_file(s3_file.key, s3_file.key)
+        with py7zr.SevenZipFile(s3_file.key, mode='r') as z:
+            z.extractall(path="txt")
+        os.remove(s3_file.key)
+
+        file_name = s3_file.key
+        file_name = file_name.split('/')[-1]
+        file_name_csv = file_name.split('.')[0] + '.csv'
+        file_name = file_name.split('.')[0] + '.txt'
+         
+        df = pd.read_csv('txt/'+file_name, sep=';', encoding='ISO-8859-1')
+        df.to_csv('extract/'+file_name_csv, sep =',')
+
+        os.remove('txt/'+file_name)
+        
+        file_bucket_name = s3_file.key
+        file_bucket_name = file_bucket_name.split('/')[1]
+        print(file_name)
+
+        #obj = s3.Object(bucket, 'extracted/'+s3_file.key)
+        
+        s3.Bucket(bucket).upload_file("extract/"+file_name_csv, "extract/"+file_bucket_name+"/"+file_name_csv)
+
+        os.remove("extract/"+file_name_csv)
+        
